@@ -2,7 +2,7 @@ pipeline{
     agent any // decided which node to run
 
     tools {
-        jdk 'java-17'
+        jdk 'JDK21'
         maven 'maven'
     }
 
