@@ -6,12 +6,12 @@ pipeline {
         maven 'maven'
     }
 
-    environment {
-        IMAGE_NAME = "manojkrishnappa/itkannadigaru-blogpost:${GIT_COMMIT}"
-        AWS_REGION = "us-west-2"
-        CLUSTER_NAME = "itkannadigaru-cluster"
-        NAMESPACE = "microdegree"
-    }
+   environment {
+    IMAGE_NAME = "sunilpatil08/itkannadigaru-blogpost:${GIT_COMMIT}"
+    AWS_REGION = "us-west-2"
+    CLUSTER_NAME = "itkannadigaru-cluster"
+    NAMESPACE = "microdegree"
+}
 
     stages {
 
