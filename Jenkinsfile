@@ -82,7 +82,7 @@ pipeline{
 
         // stage('Deploy to EKS cluster'){
         //     steps{
-        //         withKubeConfig(caCertificate: '', clusterName: 'itkannadigaru-cluster', contextName: '', credentialsId: 'kube', namespace: 'itkannadigaru', restrictKubeConfigAccess: false, serverUrl: 'https://688F197BF70A6790C077E2E1C239DD27.gr7.us-west-2.eks.amazonaws.com'){
+        //          withKubeConfig(caCertificate: '', clusterName: 'itkannadigaru-cluster', contextName: '', credentialsId: '', namespace: 'microdegree', restrictKubeConfigAccess: false, serverUrl: 'https://52CA246AC63B6BDC136945146EA3AE2D.gr7.us-west-2.eks.amazonaws.com') {
         //             sh " sed -i 's|replace|${IMAGE_NAME}|g' deployment.yml "
         //             sh " kubectl apply -f deployment.yml -n ${NAMESPACE}"
         //         }
@@ -90,8 +90,8 @@ pipeline{
         // }
         // stage('verify'){
         //     steps{
-        //         withKubeConfig(caCertificate: '', clusterName: 'itkannadigaru-cluster', contextName: '', credentialsId: 'kube', namespace: 'itkannadigaru', restrictKubeConfigAccess: false, serverUrl: 'https://688F197BF70A6790C077E2E1C239DD27.gr7.us-west-2.eks.amazonaws.com'){
-        //             sh " kubectl get pods -n ${NAMESPACE}"
+        //           withKubeConfig(caCertificate: '', clusterName: 'itkannadigaru-cluster', contextName: '', credentialsId: '', namespace: 'microdegree', restrictKubeConfigAccess: false, serverUrl: 'https://52CA246AC63B6BDC136945146EA3AE2D.gr7.us-west-2.eks.amazonaws.com') {
+        //            sh " kubectl get pods -n ${NAMESPACE}"
         //             sh " kubectl get svc -n ${NAMESPACE}"
         //         }
         //     }
