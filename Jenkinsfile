@@ -16,31 +16,28 @@ pipeline {
     stages {
 
         stage('Compile') {
-    steps {
-        sh '''
-            echo "===== JAVA ====="
-            java -version
+            steps {
+                sh '''
+                    echo "===== JAVA ====="
+                    java -version
 
-            echo "===== JAVA_HOME ====="
-            echo "$JAVA_HOME"
+                    echo "===== JAVA_HOME ====="
+                    echo "$JAVA_HOME"
 
-            echo "===== JAVAC ====="
-            javac -version || true
+                    echo "===== JAVAC ====="
+                    javac -version || true
 
-            echo "===== JAVAC PATH ====="
-            which javac || true
+                    echo "===== JAVAC PATH ====="
+                    which javac || true
 
-            echo "===== MAVEN ====="
-            mvn -version
+                    echo "===== MAVEN ====="
+                    mvn -version
 
-            echo "===== PATH ====="
-            echo "$PATH"
-
-            echo "===== COMPILE ====="
-            mvn compile
-        '''
-    }
-}
+                    echo "===== COMPILE ====="
+                    mvn compile
+                '''
+            }
+        }
         }
 
         stage('packaging') {
