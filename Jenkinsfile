@@ -38,9 +38,8 @@ pipeline {
                 '''
             }
         }
-        }
 
-        stage('packaging') {
+        stage('Packaging') {
             steps {
                 sh '''
                     mvn clean package
@@ -48,7 +47,7 @@ pipeline {
             }
         }
 
-        stage('docker-build') {
+        stage('Docker Build') {
             steps {
                 sh '''
                     docker build -t ${IMAGE_NAME} .
@@ -66,13 +65,17 @@ pipeline {
                             passwordVariable: 'DOCKER_PASSWORD'
                         )
                     ]) {
-                        sh 'echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin'
+                        sh '''
+                            echo "$DOCKER_PASSWORD" | docker login \
+                                -u "$DOCKER_USERNAME" \
+                                --password-stdin
+                        '''
                     }
                 }
             }
         }
 
-        stage('Push to dockerhub') {
+        stage('Push to Docker Hub') {
             steps {
                 sh '''
                     docker push ${IMAGE_NAME}
@@ -80,13 +83,17 @@ pipeline {
             }
         }
 
-        stage('update the k8 cluster') {
+        stage('Update EKS Cluster') {
             steps {
-                sh "aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}"
+                sh '''
+                    aws eks update-kubeconfig \
+                        --region ${AWS_REGION} \
+                        --name ${CLUSTER_NAME}
+                '''
             }
         }
 
-        stage('Deploy to EKS cluster') {
+        stage('Deploy to EKS') {
             steps {
                 withKubeConfig(
                     caCertificate: '',
@@ -97,13 +104,15 @@ pipeline {
                     restrictKubeConfigAccess: false,
                     serverUrl: 'https://420880259B390C766ED47F436190C1B6.gr7.us-west-2.eks.amazonaws.com'
                 ) {
-                    sh "sed -i 's|replace|${IMAGE_NAME}|g' deployment.yml"
-                    sh "kubectl apply -f deployment.yml -n ${NAMESPACE}"
+                    sh '''
+                        sed -i "s|replace|${IMAGE_NAME}|g" deployment.yml
+                        kubectl apply -f deployment.yml -n ${NAMESPACE}
+                    '''
                 }
             }
         }
 
-        stage('verify') {
+        stage('Verify') {
             steps {
                 withKubeConfig(
                     caCertificate: '',
@@ -114,8 +123,10 @@ pipeline {
                     restrictKubeConfigAccess: false,
                     serverUrl: 'https://420880259B390C766ED47F436190C1B6.gr7.us-west-2.eks.amazonaws.com'
                 ) {
-                    sh "kubectl get pods -n ${NAMESPACE}"
-                    sh "kubectl get svc -n ${NAMESPACE}"
+                    sh '''
+                        kubectl get pods -n ${NAMESPACE}
+                        kubectl get svc -n ${NAMESPACE}
+                    '''
                 }
             }
         }
