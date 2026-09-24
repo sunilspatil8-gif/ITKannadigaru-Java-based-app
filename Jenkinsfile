@@ -84,23 +84,29 @@ pipeline {
         }
 
         stage('Update EKS Cluster') {
-            steps {
-                withCredentials([
-                    [$class: 'AmazonWebServicesCredentialsBinding',
-                     credentialsId: 'kube']
-                ]) {
-                    sh '''
-                        echo "===== AWS IDENTITY ====="
-                        aws sts get-caller-identity
+    steps {
+        withCredentials([
+            string(
+                credentialsId: 'AWS_ACCESS_KEY_ID',
+                variable: 'AWS_ACCESS_KEY_ID'
+            ),
+            string(
+                credentialsId: 'AWS_SECRET_ACCESS_KEY',
+                variable: 'AWS_SECRET_ACCESS_KEY'
+            )
+        ]) {
+            sh '''
+                echo "===== AWS IDENTITY ====="
+                aws sts get-caller-identity
 
-                        echo "===== UPDATE KUBECONFIG ====="
-                        aws eks update-kubeconfig \
-                            --region ${AWS_REGION} \
-                            --name ${CLUSTER_NAME}
-                    '''
-                }
-            }
+                echo "===== UPDATE KUBECONFIG ====="
+                aws eks update-kubeconfig \
+                    --region ${AWS_REGION} \
+                    --name ${CLUSTER_NAME}
+            '''
         }
+    }
+}
 
         stage('Deploy to EKS') {
             steps {
