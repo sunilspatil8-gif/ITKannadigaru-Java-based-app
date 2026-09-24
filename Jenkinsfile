@@ -87,7 +87,7 @@ pipeline {
             steps {
                 withCredentials([
                     [$class: 'AmazonWebServicesCredentialsBinding',
-                     credentialsId: 'aws-eks-creds']
+                     credentialsId: 'kube']
                 ]) {
                     sh '''
                         echo "===== AWS IDENTITY ====="
