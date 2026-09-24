@@ -6,12 +6,12 @@ pipeline {
         maven 'maven'
     }
 
-   environment {
-    IMAGE_NAME = "sunilpatil08/itkannadigaru-blogpost:${GIT_COMMIT}"
-    AWS_REGION = "us-west-2"
-    CLUSTER_NAME = "itkannadigaru-cluster"
-    NAMESPACE = "microdegree"
-}
+    environment {
+        IMAGE_NAME = "sunilpatil08/itkannadigaru-blogpost:${GIT_COMMIT}"
+        AWS_REGION = "us-west-2"
+        CLUSTER_NAME = "itkannadigaru-cluster"
+        NAMESPACE = "microdegree"
+    }
 
     stages {
 
@@ -84,11 +84,22 @@ pipeline {
         }
 
         stage('Update EKS Cluster') {
-    steps{
-        //         script{
-        //            sh "aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}"     
-        //         }
-}
+            steps {
+                withCredentials([
+                    [$class: 'AmazonWebServicesCredentialsBinding',
+                     credentialsId: 'aws-eks-creds']
+                ]) {
+                    sh '''
+                        echo "===== AWS IDENTITY ====="
+                        aws sts get-caller-identity
+
+                        echo "===== UPDATE KUBECONFIG ====="
+                        aws eks update-kubeconfig \
+                            --region ${AWS_REGION} \
+                            --name ${CLUSTER_NAME}
+                    '''
+                }
+            }
         }
 
         stage('Deploy to EKS') {
@@ -103,7 +114,10 @@ pipeline {
                     serverUrl: 'https://420880259B390C766ED47F436190C1B6.gr7.us-west-2.eks.amazonaws.com'
                 ) {
                     sh '''
+                        echo "===== DEPLOYING TO EKS ====="
+
                         sed -i "s|replace|${IMAGE_NAME}|g" deployment.yml
+
                         kubectl apply -f deployment.yml -n ${NAMESPACE}
                     '''
                 }
@@ -122,7 +136,10 @@ pipeline {
                     serverUrl: 'https://420880259B390C766ED47F436190C1B6.gr7.us-west-2.eks.amazonaws.com'
                 ) {
                     sh '''
+                        echo "===== PODS ====="
                         kubectl get pods -n ${NAMESPACE}
+
+                        echo "===== SERVICES ====="
                         kubectl get svc -n ${NAMESPACE}
                     '''
                 }
