@@ -117,7 +117,7 @@ pipeline {
                     credentialsId: 'kube',
                     namespace: 'microdegree',
                     restrictKubeConfigAccess: false,
-                    serverUrl: 'https://52CA246AC63B6BDC136945146EA3AE2D.gr7.us-west-2.eks.amazonaws.com'
+                    serverUrl: 'a59ccfd9b0af045649c78b79a87a47c5-994594118.us-west-2.elb.amazonaws.com'
                 ) {
                     sh '''
                         echo "===== DEPLOYING TO EKS ====="
@@ -139,7 +139,7 @@ pipeline {
                     credentialsId: 'kube',
                     namespace: 'microdegree',
                     restrictKubeConfigAccess: false,
-                    serverUrl: 'https://52CA246AC63B6BDC136945146EA3AE2D.gr7.us-west-2.eks.amazonaws.com'
+                    serverUrl: 'a59ccfd9b0af045649c78b79a87a47c5-994594118.us-west-2.elb.amazonaws.com'
                 ) {
                     sh '''
                         echo "===== PODS ====="
