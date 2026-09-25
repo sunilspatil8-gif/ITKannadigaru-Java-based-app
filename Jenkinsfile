@@ -7,10 +7,10 @@ pipeline {
     }
 
     environment {
-        IMAGE_NAME = "sunilpatil08/itkannadigaru-blogpost:${GIT_COMMIT}"
-        AWS_REGION = "us-west-2"
+        IMAGE_NAME   = "sunilpatil08/itkannadigaru-blogpost:${GIT_COMMIT}"
+        AWS_REGION   = "us-west-2"
         CLUSTER_NAME = "itkannadigaru-cluster"
-        NAMESPACE = "microdegree"
+        NAMESPACE    = "microdegree"
     }
 
     stages {
@@ -83,47 +83,42 @@ pipeline {
             }
         }
 
-        stage('Update EKS Cluster') {
-    steps {
-        withCredentials([
-            string(
-                credentialsId: 'AWS_ACCESS_KEY_ID',
-                variable: 'AWS_ACCESS_KEY_ID'
-            ),
-            string(
-                credentialsId: 'AWS_SECRET_ACCESS_KEY',
-                variable: 'AWS_SECRET_ACCESS_KEY'
-            )
-        ]) {
-            sh '''
-                echo "===== AWS IDENTITY ====="
-                aws sts get-caller-identity
-
-                echo "===== UPDATE KUBECONFIG ====="
-                aws eks update-kubeconfig \
-                    --region ${AWS_REGION} \
-                    --name ${CLUSTER_NAME}
-            '''
-        }
-    }
-}
+        // ---------------------------------------------------------------
+        // IMPORTANT: `aws eks update-kubeconfig` does NOT embed a static
+        // token. It writes an `exec:`-based kubeconfig that shells out to
+        // `aws eks get-token` on every `kubectl` call, using whatever AWS
+        // credentials are in the environment *at that moment*.
+        //
+        // The original pipeline scoped AWS_ACCESS_KEY_ID/SECRET only to
+        // the "Update EKS Cluster" stage, then tried to deploy in a later
+        // stage wrapped in a DIFFERENT `withKubeConfig(credentialsId:
+        // 'kube', serverUrl: '<no scheme>')` block. That overwrote the
+        // good kubeconfig with an unauthenticated/malformed one, which is
+        // exactly what produced:
+        //   "the server has asked for the client to provide credentials"
+        //
+        // Fix: keep AWS credentials in scope for every stage that runs
+        // kubectl, and drop the conflicting withKubeConfig/'kube' cred
+        // entirely — the kubeconfig from update-kubeconfig is sufficient.
+        // ---------------------------------------------------------------
 
         stage('Deploy to EKS') {
             steps {
-                withKubeConfig(
-                    caCertificate: '',
-                    clusterName: 'itkannadigaru-cluster',
-                    contextName: '',
-                    credentialsId: 'kube',
-                    namespace: 'microdegree',
-                    restrictKubeConfigAccess: false,
-                    serverUrl: 'https://A3709B1DC98F0711201AF14881772A21.gr7.us-west-2.eks.amazonaws.com'
-                ) {
+                withCredentials([
+                    string(credentialsId: 'AWS_ACCESS_KEY_ID',     variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
                     sh '''
+                        echo "===== AWS IDENTITY ====="
+                        aws sts get-caller-identity
+
+                        echo "===== UPDATE KUBECONFIG ====="
+                        aws eks update-kubeconfig \
+                            --region ${AWS_REGION} \
+                            --name ${CLUSTER_NAME}
+
                         echo "===== DEPLOYING TO EKS ====="
-
                         sed -i "s|replace|${IMAGE_NAME}|g" deployment.yml
-
                         kubectl apply -f deployment.yml -n ${NAMESPACE}
                     '''
                 }
@@ -132,15 +127,10 @@ pipeline {
 
         stage('Verify') {
             steps {
-                withKubeConfig(
-                    caCertificate: '',
-                    clusterName: 'itkannadigaru-cluster',
-                    contextName: '',
-                    credentialsId: 'kube',
-                    namespace: 'microdegree',
-                    restrictKubeConfigAccess: false,
-                    serverUrl: 'https://A3709B1DC98F0711201AF14881772A21.gr7.us-west-2.eks.amazonaws.com'
-                ) {
+                withCredentials([
+                    string(credentialsId: 'AWS_ACCESS_KEY_ID',     variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
                     sh '''
                         echo "===== PODS ====="
                         kubectl get pods -n ${NAMESPACE}
