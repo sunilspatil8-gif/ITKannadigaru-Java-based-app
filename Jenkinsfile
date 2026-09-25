@@ -1,101 +1,145 @@
-pipeline{
-    agent any // decided which node to run
+pipeline {
+    agent any
 
     tools {
-        jdk 'java-17'
+        jdk 'JDK21'
         maven 'maven'
     }
 
     environment {
-        IMAGE_NAME = "manojkrishnappa/itkannadigaru-blogpost:${GIT_COMMIT}"
-        AWS_REGION = "us-west-2"
+        IMAGE_NAME   = "sunilpatil08/itkannadigaru-blogpost:${GIT_COMMIT}"
+        AWS_REGION   = "us-west-2"
         CLUSTER_NAME = "itkannadigaru-cluster"
-        NAMESPACE = "itkannadigaru"
+        NAMESPACE    = "microdegree"
     }
 
-    stages{
-        stage('git-checkout'){
-            steps{
-                git url: 'https://github.com/ManojKRISHNAPPA/ITKannadigaru-Java-based-app.git', branch: 'prod'
-            }
-            
-        }
+    stages {
 
-        stage('Compile'){
-            steps{
+        stage('Compile') {
+            steps {
                 sh '''
+                    echo "===== JAVA ====="
+                    java -version
+
+                    echo "===== JAVA_HOME ====="
+                    echo "$JAVA_HOME"
+
+                    echo "===== JAVAC ====="
+                    javac -version || true
+
+                    echo "===== JAVAC PATH ====="
+                    which javac || true
+
+                    echo "===== MAVEN ====="
+                    mvn -version
+
+                    echo "===== COMPILE ====="
                     mvn compile
                 '''
             }
         }
-        stage('packaging'){
-            steps{
+
+        stage('Packaging') {
+            steps {
                 sh '''
                     mvn clean package
                 '''
             }
         }
-        stage('docker-build'){
-            steps{
+
+        stage('Docker Build') {
+            steps {
                 sh '''
-                    printenv
                     docker build -t ${IMAGE_NAME} .
                 '''
             }
         }
-        // stage('Docker-testing'){
-        //     steps{
-        //         sh '''
-        //             docker kill itkannadigaru-blogpost-test
-        //             docker rm itkannadigaru-blogpost-test
-        //             docker run -it -d --name itkannadigaru-blogpost-test -p 9000:8080 ${IMAGE_NAME}
-        //         '''
-        //     }
-        // }   
 
         stage('Login to Docker Hub') {
             steps {
                 script {
-                    withCredentials([usernamePassword(credentialsId: 'docker-creds', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                        // Login to Docker Hub
-                        sh "echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin"
+                    withCredentials([
+                        usernamePassword(
+                            credentialsId: 'docker-hub-creds',
+                            usernameVariable: 'DOCKER_USERNAME',
+                            passwordVariable: 'DOCKER_PASSWORD'
+                        )
+                    ]) {
+                        sh '''
+                            echo "$DOCKER_PASSWORD" | docker login \
+                                -u "$DOCKER_USERNAME" \
+                                --password-stdin
+                        '''
                     }
                 }
             }
-        }  
+        }
 
-        stage('Push to dockerhub'){
-            steps{
+        stage('Push to Docker Hub') {
+            steps {
                 sh '''
                     docker push ${IMAGE_NAME}
                 '''
             }
         }
 
-        // stage('update the k8 cluster'){
-        //     steps{
-        //         script{
-        //            sh "aws eks update-kubeconfig --region ${AWS_REGION} --name ${CLUSTER_NAME}"     
-        //         }
-        //     }
-        // }
+        // ---------------------------------------------------------------
+        // IMPORTANT: `aws eks update-kubeconfig` does NOT embed a static
+        // token. It writes an `exec:`-based kubeconfig that shells out to
+        // `aws eks get-token` on every `kubectl` call, using whatever AWS
+        // credentials are in the environment *at that moment*.
+        //
+        // The original pipeline scoped AWS_ACCESS_KEY_ID/SECRET only to
+        // the "Update EKS Cluster" stage, then tried to deploy in a later
+        // stage wrapped in a DIFFERENT `withKubeConfig(credentialsId:
+        // 'kube', serverUrl: '<no scheme>')` block. That overwrote the
+        // good kubeconfig with an unauthenticated/malformed one, which is
+        // exactly what produced:
+        //   "the server has asked for the client to provide credentials"
+        //
+        // Fix: keep AWS credentials in scope for every stage that runs
+        // kubectl, and drop the conflicting withKubeConfig/'kube' cred
+        // entirely — the kubeconfig from update-kubeconfig is sufficient.
+        // ---------------------------------------------------------------
 
-        // stage('Deploy to EKS cluster'){
-        //     steps{
-        //         withKubeConfig(caCertificate: '', clusterName: 'itkannadigaru-cluster', contextName: '', credentialsId: 'kube', namespace: 'itkannadigaru', restrictKubeConfigAccess: false, serverUrl: 'https://688F197BF70A6790C077E2E1C239DD27.gr7.us-west-2.eks.amazonaws.com'){
-        //             sh " sed -i 's|replace|${IMAGE_NAME}|g' deployment.yml "
-        //             sh " kubectl apply -f deployment.yml -n ${NAMESPACE}"
-        //         }
-        //     }
-        // }
-        // stage('verify'){
-        //     steps{
-        //         withKubeConfig(caCertificate: '', clusterName: 'itkannadigaru-cluster', contextName: '', credentialsId: 'kube', namespace: 'itkannadigaru', restrictKubeConfigAccess: false, serverUrl: 'https://688F197BF70A6790C077E2E1C239DD27.gr7.us-west-2.eks.amazonaws.com'){
-        //             sh " kubectl get pods -n ${NAMESPACE}"
-        //             sh " kubectl get svc -n ${NAMESPACE}"
-        //         }
-        //     }
-        // }
+        stage('Deploy to EKS') {
+            steps {
+                withCredentials([
+                    string(credentialsId: 'AWS_ACCESS_KEY_ID',     variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+                    sh '''
+                        echo "===== AWS IDENTITY ====="
+                        aws sts get-caller-identity
+
+                        echo "===== UPDATE KUBECONFIG ====="
+                        aws eks update-kubeconfig \
+                            --region ${AWS_REGION} \
+                            --name ${CLUSTER_NAME}
+
+                        echo "===== DEPLOYING TO EKS ====="
+                        sed -i "s|replace|${IMAGE_NAME}|g" deployment.yml
+                        kubectl apply -f deployment.yml -n ${NAMESPACE}
+                    '''
+                }
+            }
+        }
+
+        stage('Verify') {
+            steps {
+                withCredentials([
+                    string(credentialsId: 'AWS_ACCESS_KEY_ID',     variable: 'AWS_ACCESS_KEY_ID'),
+                    string(credentialsId: 'AWS_SECRET_ACCESS_KEY', variable: 'AWS_SECRET_ACCESS_KEY')
+                ]) {
+                    sh '''
+                        echo "===== PODS ====="
+                        kubectl get pods -n ${NAMESPACE}
+
+                        echo "===== SERVICES ====="
+                        kubectl get svc -n ${NAMESPACE}
+                    '''
+                }
+            }
+        }
     }
 }
-
